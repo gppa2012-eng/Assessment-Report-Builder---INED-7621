@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progress Monitoring Case Study — Report Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap');
+
+  :root{
+    --ink:#000000;        /* KSU Black — primary text */
+    --paper:#FFFFFF;      /* KSU White — primary background */
+    --card:#FFFFFF;
+    --brass:#8A6D1A;      /* deep gold — readable text/icon accent, drawn from KSU Gold */
+    --brass-soft:#FFC629; /* KSU Gold, Pantone 123C — solid accent fill (pair with black text) */
+    --slate:#3F3F3F;      /* dark neutral gray — secondary text, kept high-contrast */
+    --line:#B0B3B2;       /* KSU Gray, Pantone 421C — borders/dividers */
+    --good:#00843D;       /* KSU complementary green, Pantone 348C — positive/on-track */
+    --bad:#B8460E;        /* deep KSU orange, drawn from Pantone 715C — warnings/remove */
+    --gold-tint:#FFF3D1;  /* pale gold tint — for soft callout backgrounds only */
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    padding:20px 32px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--brass);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Lora',serif;
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 4px;
+  }
+  .sub{
+    color:var(--slate);
+    font-size:15px;
+    max-width:560px;
+    line-height:1.55;
+  }
+  .save-load{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+  }
+  .autosave-badge{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    color:var(--good);
+    font-weight:600;
+  }
+  .autosave-badge .dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--good);
+    flex-shrink:0;
+  }
+  .save-load-actions{
+    display:flex;
+    gap:8px;
+  }
+  .save-load-actions button{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    padding:8px 13px;
+    border-radius:6px;
+    cursor:pointer;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+  }
+  .save-load-actions button:hover{ border-color:var(--brass); color:var(--ink); }
+  .save-load-actions button.danger:hover{ border-color:var(--bad); color:var(--bad); }
+
+  nav.tabs{
+    display:flex;
+    gap:2px;
+    padding:0 32px;
+    border-bottom:1px solid var(--line);
+    background:var(--card);
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    padding:13px 16px;
+    background:transparent;
+    border:none;
+    border-bottom:3px solid transparent;
+    color:var(--slate);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  nav.tabs button.active{
+    color:var(--ink);
+    border-bottom-color:var(--brass-soft);
+    font-weight:700;
+  }
+  nav.tabs button:hover{ color:var(--ink); }
+
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    min-height:calc(100vh - 170px);
+  }
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .form-pane{
+    padding:26px 32px 60px;
+    border-right:1px solid var(--line);
+    overflow-y:auto;
+  }
+  .part-page{ display:none; }
+  .part-page.active{ display:block; }
+
+  .part-intro{
+    font-size:14.5px;
+    color:var(--ink);
+    line-height:1.65;
+    background:var(--gold-tint);
+    padding:11px 14px;
+    border-radius:6px;
+    margin-bottom:22px;
+    font-weight:500;
+  }
+
+  .id-block{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px 20px 20px;
+    margin-bottom:30px;
+  }
+  .id-block .criterion-label{ margin-bottom:10px; }
+  .id-note{
+    font-size:13.5px;
+    color:var(--ink);
+    line-height:1.55;
+    margin-bottom:14px;
+    padding:9px 11px;
+    background:var(--gold-tint);
+    border-radius:5px;
+    font-weight:500;
+  }
+  .id-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px 16px;
+  }
+  .id-field label{
+    display:block;
+    font-size:13.5px;
+    font-weight:600;
+    margin-bottom:5px;
+    color:var(--ink);
+  }
+  .id-field input{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:9px 11px;
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    background:var(--paper);
+  }
+  .id-field input:focus{
+    outline:none;
+    border-color:var(--brass);
+    box-shadow:0 0 0 3px var(--gold-tint);
+  }
+  .age-readout{
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:6px;
+    padding:12px 14px;
+    margin-top:2px;
+  }
+  .age-readout .lbl{
+    font-size:12.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:#E0E0E0;
+  }
+  .age-readout .val{
+    font-family:'JetBrains Mono',monospace;
+    font-size:18px;
+    font-weight:500;
+  }
+
+  .criterion-block{ margin-bottom:28px; }
+  .criterion-label{
+    display:inline-block;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:var(--brass-soft);
+    padding:4px 10px;
+    border-radius:3px;
+    margin-bottom:12px;
+  }
+  .q{ margin-bottom:16px; }
+  .q label{
+    display:block;
+    font-size:15.5px;
+    font-weight:600;
+    margin-bottom:7px;
+    line-height:1.45;
+  }
+  .q textarea{
+    width:100%;
+    min-height:68px;
+    resize:vertical;
+    border:1.5px solid var(--line);
+    border-radius:6px;
+    padding:11px 13px;
+    font-family:'Inter',sans-serif;
+    font-size:15.5px;
+    color:var(--ink);
+    background:var(--card);
+    line-height:1.55;
+  }
+  .q textarea:focus{
+    outline:none;
+    border-color:var(--brass);
+    box-shadow:0 0 0 3px var(--gold-tint);
+  }
+
+  .data-table{
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    margin-bottom:12px;
+  }
+  .data-table .drow{
+    display:grid;
+    grid-template-columns:1fr 1fr 32px;
+    gap:8px;
+    padding:9px 10px;
+    border-bottom:1px solid var(--line);
+    align-items:center;
+    background:var(--card);
+  }
+  .data-table .drow:last-child{ border-bottom:none; }
+  .data-table .dhead{
+    background:var(--paper);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--slate);
+    font-weight:700;
+  }
+  .data-table input{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:7px 9px;
+    font-family:'Inter',sans-serif;
+    font-size:14.5px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .data-table .rm{
+    background:transparent;
+    border:none;
+    color:var(--bad);
+    cursor:pointer;
+    font-size:17px;
+    line-height:1;
+  }
+  .add-row{
+    font-size:13.5px;
+    font-weight:600;
+    background:var(--card);
+    border:1.5px dashed var(--line);
+    color:var(--slate);
+    padding:9px 13px;
+    border-radius:6px;
+    cursor:pointer;
+    margin-bottom:20px;
+  }
+  .add-row:hover{ border-color:var(--brass); color:var(--ink); }
+
+  .goal-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px 16px;
+    margin-bottom:20px;
+  }
+  .goal-grid .id-field{ margin:0; }
+
+  .actions{
+    position:sticky;
+    bottom:0;
+    background:linear-gradient(to top, var(--paper) 60%, transparent);
+    padding-top:20px;
+  }
+  button#generate{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-bottom:3px solid var(--brass-soft);
+    padding:13px 24px;
+    font-size:15px;
+    font-weight:600;
+    border-radius:6px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  button#generate:hover{ background:#1A1A1A; }
+
+  .preview-pane{
+    padding:26px 32px 60px;
+    overflow-y:auto;
+    background:var(--card);
+  }
+  .preview-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:18px;
+    gap:12px;
+  }
+  .preview-title{
+    font-family:'Lora',serif;
+    font-size:20px;
+    font-weight:600;
+  }
+  .toolbar{ display:flex; gap:8px; }
+  .toolbar button{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    padding:8px 13px;
+    border-radius:5px;
+    cursor:pointer;
+  }
+  .toolbar button:hover{ border-color:var(--brass); color:var(--ink); }
+
+  .header-card{
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:15px 18px;
+    margin-bottom:16px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13.5px;
+    line-height:1.95;
+    color:var(--ink);
+    background:var(--paper);
+  }
+  .header-card .hrow{ display:flex; gap:8px; }
+  .header-card .hrow .k{ color:var(--slate); width:130px; flex-shrink:0; font-weight:600; }
+  .header-card .hrow .v.empty{ color:var(--slate); font-style:italic; }
+
+  .report-page{
+    border:1px solid var(--line);
+    border-radius:4px;
+  }
+  .report-row{
+    display:grid;
+    grid-template-columns:96px 1fr;
+    border-bottom:1px solid var(--line);
+  }
+  .report-row:last-child{ border-bottom:none; }
+  .margin-tag{
+    padding:16px 10px 16px 14px;
+    font-size:11px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--brass);
+    font-weight:700;
+    line-height:1.4;
+    border-right:2px solid var(--brass-soft);
+  }
+  .report-copy{
+    padding:17px 19px;
+    font-size:16px;
+    line-height:1.75;
+    color:var(--ink);
+  }
+  .report-copy .heading{
+    font-family:'Lora',serif;
+    font-weight:700;
+    font-size:16.5px;
+    margin-bottom:7px;
+  }
+  .placeholder{
+    color:var(--slate);
+    font-style:italic;
+    font-size:14px;
+  }
+  .status{
+    display:none;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    color:var(--good);
+    font-weight:600;
+    margin-top:10px;
+  }
+  .status.show{ display:flex; }
+
+  .chart-wrap{
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:14px;
+    margin-top:2px;
+    background:var(--paper);
+  }
+  .chart-legend{
+    display:flex;
+    gap:16px;
+    font-size:13px;
+    color:var(--ink);
+    font-weight:500;
+    margin-top:8px;
+    flex-wrap:wrap;
+  }
+  .chart-legend span{ display:flex; align-items:center; gap:5px; }
+  .swatch{ width:12px; height:3px; display:inline-block; border-radius:2px; }
+
+  /* Full report tab */
+  #fullReportBody .report-page{ margin-bottom:20px; }
+  #fullReportBody .part-title{
+    font-family:'Lora',serif;
+    font-weight:700;
+    font-size:17.5px;
+    margin:26px 0 8px;
+  }
+  #fullReportBody .part-title:first-child{ margin-top:0; }
+  #refsList{
+    font-size:15px;
+    line-height:1.9;
+    white-space:pre-wrap;
+    padding:16px 18px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:var(--paper);
+  }
+  .data-table .drow.skill{grid-template-columns:1.4fr .7fr .9fr 32px;}
+  .data-table .drow.sd{grid-template-columns:1fr 1.2fr 1.2fr 32px;}
+  .skill-lbl{font-size:13px;font-weight:700;}
+  .skill-lbl.s{color:var(--good);}
+  .skill-lbl.n{color:var(--bad);}
+  .sub-label{display:block;font-size:14px;font-weight:600;margin:6px 0 8px;}
+  .q input[type=text], .q input[type=date], .q input[type=number], .q select{
+    width:100%;border:1.5px solid var(--line);border-radius:6px;padding:9px 11px;
+    font-family:'Inter',sans-serif;font-size:15px;color:var(--ink);background:var(--card);
+  }
+  .id-field select{
+    width:100%;border:1px solid var(--line);border-radius:6px;padding:9px 11px;
+    font-family:'Inter',sans-serif;font-size:15px;color:var(--ink);background:var(--paper);
+  }
+  .goal-grid input[readonly]{background:var(--gold-tint);}
+  .check-note{font-size:13.5px;line-height:1.5;padding:9px 11px;background:var(--gold-tint);border-radius:5px;margin-top:8px;font-weight:500;}
+  .check-box{border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin-bottom:18px;font-size:14px;line-height:1.6;}
+  .check-box .check-title{font-weight:700;margin-bottom:6px;}
+  .check-box .check-warn{color:var(--bad);font-weight:600;}
+  .check-box .check-line{color:var(--slate);}
+  .benchmark-link{font-size:14px;}
+  .cite-list{border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:10px;background:var(--card);}
+  .cite-item{display:flex;gap:8px;align-items:flex-start;padding:6px 0;font-size:14px;line-height:1.45;border-bottom:1px solid var(--line);}
+  .cite-item:last-child{border-bottom:none;}
+  .cite-item input{margin-top:3px;flex-shrink:0;}
+  .cite-flag{color:var(--bad);font-size:12.5px;font-style:normal;font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">INED 7621 · Progress Monitoring Case Study</div>
+    <h1>Case Study Report Builder</h1>
+    <div class="sub">Work through Parts 1–5 over the semester. Answer each part's questions in your own words — your report writes itself as you go. This page saves your answers automatically as you type, right here in this browser, so you can close it and come back anytime.</div>
+  </div>
+  <div class="save-load">
+    <div class="autosave-badge"><span class="dot"></span><span id="autosaveText">Autosaving in this browser</span></div>
+    <div class="save-load-actions">
+      <button id="backupBtn" title="Download a Word copy of your answers, in case you switch computers">⬇️ Backup my answers (Word)</button>
+      <button id="resetBtn" class="danger" title="Erase everything and start over">Start over</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="part1" class="active">Part 1</button>
+  <button data-tab="part2">Part 2</button>
+  <button data-tab="part3">Part 3</button>
+  <button data-tab="part4">Part 4</button>
+  <button data-tab="part5">Part 5</button>
+  <button data-tab="full">Full Report</button>
+</nav>
+
+<div class="layout">
+  <div class="form-pane">
+
+    <!-- ================= PART 1 ================= -->
+    <div class="part-page active" id="form-part1">
+      <div class="part-intro">Part 1 sets the stage: who your student is, what their school environment looks like, and why they need a diagnostic profile.</div>
+
+      <div class="id-block">
+        <span class="criterion-label">Student Identification</span>
+        <div class="id-note">Use initials, not the student's name (for example, M.N.). Chronological age is calculated automatically from the dates below, for testing purposes.</div>
+        <div class="id-grid">
+          <div class="id-field"><label for="pseudonym">Student initials</label><input type="text" id="pseudonym" placeholder="e.g., M.N."></div>
+          <div class="id-field"><label for="grade">Grade level</label><input type="text" id="grade" placeholder="e.g., Grade 1"></div>
+          <div class="id-field"><label for="evaluator">Evaluator</label><input type="text" id="evaluator" placeholder="Your name"></div>
+          <div class="id-field"><label for="reportDate">Report date</label><input type="date" id="reportDate"></div>
+          <div class="id-field"><label for="dob">Student date of birth</label><input type="date" id="dob"></div>
+          <div class="id-field"><label for="evalDate">Evaluation date</label><input type="date" id="evalDate"></div>
+          <div class="age-readout"><span class="lbl">Chronological age</span><span class="val" id="ageOut">—</span></div>
+        </div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 1 · Context & Expectations</span>
+        <div class="q"><label for="q1">1. What is this student expected to achieve academically? (Regular grade-level standards, or different goals set by their IEP?)</label><textarea id="q1" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q2">2. What is the student's classroom and school like? How does that setting affect how well they're doing in school?</label><textarea id="q2" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q3">3. What extra support systems does the school already have in place for this student (like tiered intervention programs, or regular school-wide testing/screening)?</label><textarea id="q3" placeholder="Type your answer here..."></textarea></div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 2 · Student Characteristics</span>
+        <div class="q"><label for="q4">4. What is the student's disability category, and anything else important about their general background?</label><textarea id="q4" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q5">5. Why did you choose this student as your focal student to assess?</label><textarea id="q5" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q6">6. What is this student struggling with in reading?</label><textarea id="q6" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q7">7. What's this student's school history? (Attendance, past schools, behavior referrals, past interventions, how they were first referred for special ed, and their grades.)</label><textarea id="q7" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q8">8. Is this student learning English as a new language? If yes, what's their language level and what language(s) do they speak at home? If not, just say "not applicable."</label><textarea id="q8" placeholder="Type your answer here..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- ================= PART 2 ================= -->
+    <div class="part-page" id="form-part2">
+      <div class="part-intro">Part 2 covers the student's present levels in all five areas of reading, the San Diego Quick Assessment and diagnostic results, the one progress-monitoring probe you chose, and at least 3 baseline sessions.</div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 3 · Present Level of Performance</span>
+        <div class="goal-grid">
+          <div class="id-field"><label for="sdqaDate">SDQA date</label><input type="date" id="sdqaDate"></div>
+          <div class="id-field"><label for="sdqaLevel">SDQA instructional level (grade)</label><input type="text" id="sdqaLevel" placeholder="e.g., Grade 3"></div>
+          <div class="id-field"><label for="diagName">Diagnostic assessment used</label><select id="diagName"><option value="">Choose one…</option><option>Great Leaps Phonological and Phonemic Awareness Probe</option><option>UFLI Curriculum Placement Test</option><option>Comprehension (digital or print IRI)</option><option>Other (name it in question 9)</option></select></div>
+          <div class="id-field"><label for="diagDate">Diagnostic date</label><input type="date" id="diagDate"></div>
+        </div>
+        <label class="sub-label">Skill areas tested (Strength = 90% or higher correct; Need = below 90%)</label>
+        <div class="data-table" id="skillTable"><div class="drow dhead skill"><div>Skill area</div><div>% correct</div><div>Strength / Need</div><div></div></div></div>
+        <button class="add-row" id="addSkill" type="button">+ Add skill area</button>
+
+        <div class="q"><label for="q9">9. What tests or screeners did you use to check the student's reading skills? List each one and what it measures.</label><textarea id="q9" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q10">10. What did you learn about the student's phonemic awareness (hearing and playing with sounds in words)?</label><textarea id="q10" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q11">11. What did you learn about the student's phonics skills (matching letters to sounds, decoding words)?</label><textarea id="q11" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q12">12. What did you learn about the student's reading fluency (reading smoothly, accurately, and with expression)?</label><textarea id="q12" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q13">13. What did you learn about the student's vocabulary?</label><textarea id="q13" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q14">14. What did you learn about the student's reading comprehension (understanding what they read)?</label><textarea id="q14" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q15">15. Looking at all 5 areas together, what are this student's biggest strengths and biggest needs in reading?</label><textarea id="q15" placeholder="Type your answer here..."></textarea></div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 4 · CBM Selection & Baseline</span>
+        <div class="goal-grid">
+          <div class="id-field"><label for="cbmProbe">CBM probe used</label><select id="cbmProbe"><option value="">Choose one…</option><option>Phoneme Segmentation Fluency (Pre-K/K)</option><option>Letter Sound Fluency</option><option>Letter Naming Fluency</option><option>Word Reading Fluency (Grades 1–3)</option><option>Passage Reading Fluency (Grades 1–12)</option><option>Other</option></select></div>
+          <div class="id-field"><label for="cbmForms">Form numbers used</label><input type="text" id="cbmForms" placeholder="e.g., 3-1, 3-2, 3-3"></div>
+        </div>
+        <div class="q"><label for="q16">16. Which CBM (progress-monitoring) probe did you choose to track this student, and why is it a good fit for their grade and skill level?</label><textarea id="q16" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="qObs">17. Describe the classroom and testing observations you made of the student (attention, engagement, error patterns, and how the student responded to testing).</label><textarea id="qObs" placeholder="Type your answer here..."></textarea></div>
+
+        <label class="sub-label">Baseline sessions (at least 3)</label>
+        <div class="data-table" id="baselineTable">
+          <div class="drow dhead"><div>Date</div><div>Score</div><div></div></div>
+        </div>
+        <button class="add-row" id="addBaseline" type="button">+ Add baseline session</button>
+      </div>
+    </div>
+
+    <!-- ================= PART 3 ================= -->
+    <div class="part-page" id="form-part3">
+      <div class="part-intro">Part 3: set a goal, then record at least 5 progress-monitoring sessions. Your graph builds itself from the data you enter.</div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 5 · Goal Setting</span>
+        <div class="q"><label for="q17">18. In your own words, write three goals for the student: one based on the CBM and two based on the diagnostic assessment. Describe each so it's specific and measurable (a SMART goal) — what skill, what score, by when. Example (CBM goal): By December 12, 2026, Mary will increase her oral reading fluency from 92 to 100 words correct per minute on a grade-level passage, as measured by weekly CBM probes.</label>
+          <label class="sub-label" for="q17">CBM goal</label><textarea id="q17" placeholder="Type your answer here..."></textarea>
+          <label class="sub-label" for="qGoal2">Diagnostic goal 1</label><textarea id="qGoal2" placeholder="Type your answer here..."></textarea>
+          <label class="sub-label" for="qGoal3">Diagnostic goal 2</label><textarea id="qGoal3" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q18">19. Which goal method did you use for the CBM — national benchmark or rate of improvement — and why did you choose it?</label><textarea id="q18" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="qStd">20. Which grade-level standard (Georgia ELA or Common Core) does this goal connect to, and how does it match the student's need? <a href="https://case.georgiastandards.org/391c3abe-c1ec-4a4a-a942-c9e152b35102/c3c745bc-e695-4ea4-b4a6-6622bc4415d8" target="_blank" rel="noopener">Browse the Georgia standards to choose one.</a></label><textarea id="qStd" placeholder="Type your answer here..."></textarea></div>
+
+        <div class="q"><label for="goalMethod">Goal method</label><select id="goalMethod"><option value="">Choose one…</option><option value="benchmark">National benchmark</option><option value="roi">Rate of improvement</option></select></div>
+
+        <div class="goal-grid" id="benchFields" style="display:none">
+          <div class="id-field"><label for="benchScore">Benchmark score (grade-level norm)</label><input type="number" id="benchScore"></div>
+          <div class="id-field"><label for="benchSource">Benchmark source</label><input type="text" id="benchSource" value="2025 Easy CBM Reading Measures, University of Oregon / Riverside Assessment (2025)"></div>
+          <div class="id-field" style="grid-column:1 / -1"><a class="benchmark-link" href="https://drive.google.com/file/d/1tx4RJ6mlok8SbZCskgHjSqf_qZ-9tU1D/view?usp=sharing" target="_blank" rel="noopener">Open the benchmark source file</a></div>
+        </div>
+
+        <div class="goal-grid" id="roiFields" style="display:none">
+          <div class="id-field"><label for="roiRate">Rate of improvement per week</label><input type="number" id="roiRate" step="0.1" placeholder="e.g., 1"></div>
+          <div class="id-field"><label for="roiSource">Source for this rate</label><input type="text" id="roiSource" placeholder="e.g., NCII norms"></div>
+        </div>
+
+        <div class="goal-grid">
+          <div class="id-field"><label for="sessionsPerWeek">Sessions per week</label><input type="number" id="sessionsPerWeek" placeholder="e.g., 1"></div>
+          <div class="id-field"><label for="goalSessions">Progress sessions to reach goal</label><input type="number" id="goalSessions" placeholder="e.g., 8"></div>
+          <div class="id-field"><label for="goalScore">Target score (calculated)</label><input type="number" id="goalScore" readonly></div>
+        </div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 6 · CBM Data & Graphing</span>
+        <label class="sub-label">Progress-monitoring sessions (at least 5)</label>
+        <div class="data-table" id="progressTable">
+          <div class="drow dhead"><div>Date</div><div>Score</div><div></div></div>
+        </div>
+        <button class="add-row" id="addProgress" type="button">+ Add progress session</button>
+      </div>
+    </div>
+
+    <!-- ================= PART 4 ================= -->
+    <div class="part-page" id="form-part4">
+      <div class="part-intro">Part 4: analyze what the graph is telling you, and decide what instruction should happen next.</div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 7 · Analyzing the Data</span>
+        <div class="q"><label for="q19">21. Looking at your graph, is the student on track to meet their goal, or does something need to change?</label><textarea id="q19" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q20">22. Summarize how the student performed during baseline.</label><textarea id="q20" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q21">23. Does the goal need to be adjusted? If yes, what's the new goal? If no, say why not.</label><textarea id="q21" placeholder="Type your answer here..."></textarea></div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 8 · Instructional Recommendations</span>
+        <div class="q"><label for="q22">24. Based on everything you've learned (diagnostic data + progress-monitoring data), what specific instructional changes or supports do you recommend next? Which reading skills should be targeted?</label><textarea id="q22" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q23">25. What other things did you consider (like thinking/attention skills, past instruction, or English-learner status) that shaped your recommendation?</label><textarea id="q23" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="qDys">26. Review the characteristics of dyslexia (for example, phonological processing, decoding and word reading accuracy, fluency, and spelling). Does the student show a need? Use your data.</label><textarea id="qDys" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="qRule">27. A rule-out factor is a condition that can explain reading difficulties without dyslexia. Do any apply? Consider lack of effective instruction, additional cognitive impairment or intellectual disability, and developing English proficiency (including whether the student shows need in their primary language).</label><textarea id="qRule" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q24">28. Did you talk with your mentor teacher or supervisor about these recommendations? What did they say?</label><textarea id="q24" placeholder="Type your answer here..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- ================= PART 5 ================= -->
+    <div class="part-page" id="form-part5">
+      <div class="part-intro">Part 5: wrap up by communicating progress to the people who care about this student, reflecting on the project, and listing your sources.</div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 9 · Communicating Progress</span>
+        <div class="q"><label for="q25">29. How did you communicate this student's progress to their parents/guardians and other teachers? (A letter home, a meeting, notes, a phone call — describe what you did.)</label><textarea id="q25" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q26">30. What did you do, or what would you do, to get input from the parent/guardian, not just tell them information? (This is what makes it two-way, not one-way.)</label><textarea id="q26" placeholder="Type your answer here..."></textarea></div>
+
+        <label class="sub-label">Reading profile: strengths and areas of difficulty</label>
+        <div class="check-note">Enter the student's skill area, strength, and difficulty in each row. The first row is an example and will not be included in the report.</div>
+        <div class="data-table" id="sdTable">
+          <div class="drow dhead sd"><div>Skill area</div><div>Strength</div><div>Difficulty</div><div></div></div>
+          <div class="drow sd example"><input type="text" class="d-skill" value="Example: Phonics and decoding" disabled><input type="text" class="d-str" value="Reads familiar single-syllable words with support" disabled><input type="text" class="d-dif" value="Limited automaticity with vowel teams and consonant blends" disabled><div></div></div>
+        </div>
+        <button class="add-row" id="addSD" type="button">+ Add row</button>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 10 · Reflection</span>
+        <div class="q"><label for="q27">31. Looking back at this whole project, what did you learn about the student, about progress monitoring, and about yourself as a teacher?</label><textarea id="q27" placeholder="Type your answer here..."></textarea></div>
+        <div class="q"><label for="q28">32. What would you do differently next time, or what do you still want to learn more about?</label><textarea id="q28" placeholder="Type your answer here..."></textarea></div>
+      </div>
+
+      <div class="criterion-block">
+        <span class="criterion-label">Criterion 11 · Citations / References</span>
+        <div class="q"><label>33. Check each source you used. The builder formats your reference list and shows how to cite each one in your text.</label>
+          <div class="cite-list" id="citeList"></div>
+        </div>
+        <div class="check-note" id="citeExamples"></div>
+        <div class="check-box" id="citeCheck"></div>
+        <div class="q"><label for="q29">Other sources not on the list (APA format, one per line)</label><textarea id="q29" style="min-height:90px" placeholder="Author, A. A. (Year). Title of work. Publisher."></textarea></div>
+      </div>
+    </div>
+
+    <!-- ================= FULL REPORT (no form, placeholder) ================= -->
+    <div class="part-page" id="form-full">
+      <div class="part-intro">This tab has no questions of its own — it assembles everything you've entered in Parts 1–5 into one report. Go back to any part to keep editing; this tab always reflects your latest answers.</div>
+    </div>
+
+    <div class="actions">
+      <button id="generate">🔄 Refresh preview</button>
+    </div>
+  </div>
+
+  <div class="preview-pane">
+    <div class="preview-head">
+      <div class="preview-title" id="previewTitle">Report Preview — Part 1</div>
+      <div class="toolbar">
+        <button id="copyBtn">📋 Copy this section</button>
+      </div>
+    </div>
+    <div class="part-intro" style="margin-bottom:16px;">This preview is just for checking your work. When you're done with everything, go to the <strong>Full Report</strong> tab to download the complete report to turn in.</div>
+
+    <div class="header-card" id="headerCard">
+      <div class="hrow"><span class="k">Date:</span><span class="v empty" id="hDate">—</span></div>
+      <div class="hrow"><span class="k">Student:</span><span class="v empty" id="hStudent">—</span></div>
+      <div class="hrow"><span class="k">Age:</span><span class="v empty" id="hAge">—</span></div>
+      <div class="hrow"><span class="k">Evaluator:</span><span class="v empty" id="hEvaluator">—</span></div>
+      <div class="hrow"><span class="k">Evaluation Dates:</span><span class="v empty" id="hEvalDate">—</span></div>
+    </div>
+
+    <!-- Part-specific preview containers -->
+    <div id="preview-part1" class="preview-body">
+      <div class="report-page">
+        <div class="report-row"><div class="margin-tag">Criterion 1</div><div class="report-copy"><div class="heading">Academic Expectations, Classroom, and School Context</div><div class="placeholder" id="out1">Your draft will appear here once you generate it.</div></div></div>
+        <div class="report-row"><div class="margin-tag">Criterion 2</div><div class="report-copy"><div class="heading">Student Characteristics and Rationale for Selection</div><div class="placeholder" id="out2">Your draft will appear here once you generate it.</div></div></div>
+      </div>
+    </div>
+
+    <div id="preview-part2" class="preview-body" style="display:none">
+      <div class="report-page">
+        <div class="report-row"><div class="margin-tag">Criterion 3</div><div class="report-copy"><div class="heading">Present Level of Performance & Diagnostic Analysis</div><div class="placeholder" id="out3">Your draft will appear here once you generate it.</div></div></div>
+        <div class="report-row"><div class="margin-tag">Criterion 4</div><div class="report-copy"><div class="heading">CBM Selection and Baseline</div><div class="placeholder" id="out4">Your draft will appear here once you generate it.</div></div></div>
+      </div>
+    </div>
+
+    <div id="preview-part3" class="preview-body" style="display:none">
+      <div class="report-page">
+        <div class="report-row"><div class="margin-tag">Criterion 5</div><div class="report-copy"><div class="heading">Goal Statement</div><div class="placeholder" id="out5">Your draft will appear here once you generate it.</div></div></div>
+        <div class="report-row"><div class="margin-tag">Criterion 6</div><div class="report-copy"><div class="heading">Progress Monitoring Graph</div>
+          <div class="placeholder" id="out6">Add baseline and progress-monitoring data points to see your graph.</div>
+          <div class="chart-wrap" id="chartWrap3" style="display:none"></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div id="preview-part4" class="preview-body" style="display:none">
+      <div class="report-page">
+        <div class="report-row"><div class="margin-tag">Criterion 7</div><div class="report-copy"><div class="heading">Analysis of CBM Data</div><div class="placeholder" id="out7">Your draft will appear here once you generate it.</div></div></div>
+        <div class="report-row"><div class="margin-tag">Criterion 8</div><div class="report-copy"><div class="heading">Instructional Recommendations</div><div class="placeholder" id="out8">Your draft will appear here once you generate it.</div></div></div>
+      </div>
+    </div>
+
+    <div id="preview-part5" class="preview-body" style="display:none">
+      <div class="report-page">
+        <div class="report-row"><div class="margin-tag">Criterion 9</div><div class="report-copy"><div class="heading">Communicating Progress</div><div class="placeholder" id="out9">Your draft will appear here once you generate it.</div></div></div>
+        <div class="report-row"><div class="margin-tag">Criterion 10</div><div class="report-copy"><div class="heading">Reflection</div><div class="placeholder" id="out10">Your draft will appear here once you generate it.</div></div></div>
+      </div>
+      <div class="report-page" style="margin-top:16px">
+        <div class="report-row"><div class="margin-tag">Criterion 11</div><div class="report-copy"><div class="heading">References</div><div class="placeholder" id="out11">Your references will appear here once added.</div></div></div>
+      </div>
+    </div>
+
+    <div id="preview-full" class="preview-body" style="display:none">
+      <div class="part-intro" style="margin-bottom:16px;">
+        <strong>Ready to turn this in?</strong> Download the complete report below. It includes everything from Parts 1–5, plus your graph and references.<div style="margin-top:10px;"><strong>Before you submit, proofread the entire report.</strong></div>
+        <div style="margin-top:10px;">
+          <button id="downloadFullBtn" style="background:var(--ink);color:var(--paper);border:none;border-bottom:3px solid var(--brass-soft);padding:11px 20px;font-size:14.5px;font-weight:600;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;">⬇️ Download my full report (Word)</button>
+        </div>
+      </div>
+      <div class="check-box" id="writingCheck"></div>
+      <div id="fullReportBody"></div>
+    </div>
+
+    <div class="status" id="status">✓ Copied to clipboard</div>
+  </div>
+</div>
+
+<script>
+/* ---------------- helpers ---------------- */
+function val(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function setVal(id, v){ const el = document.getElementById(id); if(el) el.value = v; }
+function lower(s){ if(!s) return s; if(/^[A-Z]{2,}/.test(s)) return s; return s.charAt(0).toLowerCase() + s.slice(1); }
+function stripEndPunct(s){ return s.replace(/[.!?]\s*$/, ''); }
+function sentence(s){ if(!s) return ''; s = s.trim(); if(!/[.!?]$/.test(s)) s += '.'; return s; }
+function fmtDate(d){ if(!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'}); }
+function isNA(s){ return /^(n\/?a|not applicable|no)\.?$/i.test((s||'').trim()); }
+function attr(s){ return String(s==null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function listJoin(arr){ if(arr.length <= 1) return arr.join(''); return arr.slice(0,-1).join(', ') + ' and ' + arr[arr.length-1]; }
+function fmt2(n){ return (Math.round(n*100)/100).toFixed(2); }
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+/* ---------------- tabs ---------------- */
+const tabs = document.querySelectorAll('nav.tabs button');
+const titleMap = {part1:'Part 1', part2:'Part 2', part3:'Part 3', part4:'Part 4', part5:'Part 5', full:'Full Report'};
+tabs.forEach(btn => btn.addEventListener('click', () => {
+  tabs.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.part-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('form-' + btn.dataset.tab).classList.add('active');
+  document.querySelectorAll('.preview-body').forEach(p => p.style.display = 'none');
+  const pv = document.getElementById('preview-' + btn.dataset.tab);
+  if(pv) pv.style.display = 'block';
+  document.getElementById('previewTitle').textContent = 'Report Preview — ' + titleMap[btn.dataset.tab];
+  generate();
+}));
+
+/* ---------------- chronological age ---------------- */
+function calcAge(dobStr, evalStr){
+  if(!dobStr || !evalStr) return null;
+  const dob = new Date(dobStr + 'T00:00:00');
+  const ev = new Date(evalStr + 'T00:00:00');
+  if(ev < dob) return null;
+  let months = (ev.getFullYear() - dob.getFullYear()) * 12 + (ev.getMonth() - dob.getMonth());
+  if(ev.getDate() < dob.getDate()) months--;
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return years + ';' + remMonths;
+}
+function updateAge(){
+  const age = calcAge(val('dob'), val('evalDate'));
+  document.getElementById('ageOut').textContent = age ? (age + '  (yrs;mos)') : '—';
+}
+['dob','evalDate'].forEach(id => document.getElementById(id).addEventListener('input', () => { updateAge(); updateHeaderCard(); }));
+
+function setField(id, text){
+  const el = document.getElementById(id);
+  if(text){ el.textContent = text; el.classList.remove('empty'); }
+  else { el.textContent = '—'; el.classList.add('empty'); }
+}
+function updateHeaderCard(){
+  const pseudonym = val('pseudonym'), grade = val('grade'), evaluator = val('evaluator');
+  const reportDate = val('reportDate'), evalDate = val('evalDate');
+  const age = calcAge(val('dob'), evalDate);
+  setField('hDate', reportDate ? fmtDate(reportDate) : '');
+  setField('hStudent', pseudonym ? (pseudonym + (grade ? ' (' + grade + ')' : '')) : '');
+  setField('hAge', age || '');
+  setField('hEvaluator', evaluator || '');
+  setField('hEvalDate', evalDate ? fmtDate(evalDate) : '');
+}
+['pseudonym','grade','evaluator','reportDate'].forEach(id => document.getElementById(id).addEventListener('input', updateHeaderCard));
+
+/* ---------------- data tables ---------------- */
+function addRow(tableId, date, score){
+  const table = document.getElementById(tableId);
+  const row = document.createElement('div');
+  row.className = 'drow';
+  row.innerHTML = '<input type="date" class="d-date" value="' + attr(date) + '">' +
+                  '<input type="number" class="d-score" placeholder="score" value="' + (score!=null ? attr(score) : '') + '">' +
+                  '<button type="button" class="rm">✕</button>';
+  row.querySelector('.rm').addEventListener('click', () => { row.remove(); generate(); });
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', generate));
+  table.appendChild(row);
+}
+function readTable(tableId){
+  const rows = document.querySelectorAll('#' + tableId + ' .drow:not(.dhead)');
+  const out = [];
+  rows.forEach(r => {
+    const d = r.querySelector('.d-date').value;
+    const s = r.querySelector('.d-score').value;
+    if(d || s) out.push({date:d, score:s === '' ? null : parseFloat(s)});
+  });
+  return out;
+}
+function clearRows(tableId){
+  document.querySelectorAll('#' + tableId + ' .drow:not(.dhead):not(.example)').forEach(r => r.remove());
+}
+
+function paintSkill(row){
+  const p = row.querySelector('.s-pct').value;
+  const lbl = row.querySelector('.skill-lbl');
+  if(p === ''){ lbl.textContent = ''; lbl.className = 'skill-lbl'; return; }
+  if(parseFloat(p) >= 90){ lbl.textContent = 'Strength'; lbl.className = 'skill-lbl s'; }
+  else { lbl.textContent = 'Need'; lbl.className = 'skill-lbl n'; }
+}
+function addSkillRow(name, pct){
+  const table = document.getElementById('skillTable');
+  const row = document.createElement('div');
+  row.className = 'drow skill';
+  row.innerHTML = '<input type="text" class="s-name" placeholder="e.g., Vowel teams" value="' + attr(name) + '">' +
+                  '<input type="number" class="s-pct" placeholder="%" value="' + (pct==null ? '' : attr(pct)) + '">' +
+                  '<span class="skill-lbl"></span>' +
+                  '<button type="button" class="rm">✕</button>';
+  row.querySelector('.rm').addEventListener('click', () => { row.remove(); generate(); });
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { paintSkill(row); generate(); }));
+  paintSkill(row);
+  table.appendChild(row);
+}
+function readSkills(){
+  const out = [];
+  document.querySelectorAll('#skillTable .drow:not(.dhead)').forEach(r => {
+    const n = r.querySelector('.s-name').value.trim();
+    const p = r.querySelector('.s-pct').value;
+    if(n || p !== '') out.push({name:n, pct: p === '' ? null : parseFloat(p)});
+  });
+  return out;
+}
+
+function addSDRow(skill, strength, difficulty){
+  const table = document.getElementById('sdTable');
+  const row = document.createElement('div');
+  row.className = 'drow sd';
+  row.innerHTML = '<input type="text" class="d-skill" placeholder="Skill area" value="' + attr(skill) + '">' +
+                  '<input type="text" class="d-str" placeholder="Strength" value="' + attr(strength) + '">' +
+                  '<input type="text" class="d-dif" placeholder="Difficulty" value="' + attr(difficulty) + '">' +
+                  '<button type="button" class="rm">✕</button>';
+  row.querySelector('.rm').addEventListener('click', () => { row.remove(); generate(); });
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', generate));
+  table.appendChild(row);
+}
+function readSD(){
+  const out = [];
+  document.querySelectorAll('#sdTable .drow:not(.dhead):not(.example)').forEach(r => {
+    const s = r.querySelector('.d-skill').value.trim();
+    const st = r.querySelector('.d-str').value.trim();
+    const d = r.querySelector('.d-dif').value.trim();
+    if(s || st || d) out.push({skill:s, strength:st, difficulty:d});
+  });
+  return out;
+}
+
+document.getElementById('addBaseline').addEventListener('click', () => addRow('baselineTable'));
+document.getElementById('addProgress').addEventListener('click', () => addRow('progressTable'));
+document.getElementById('addSkill').addEventListener('click', () => addSkillRow('', null));
+document.getElementById('addSD').addEventListener('click', () => addSDRow('', '', ''));
+
+function seedRows(){
+  if(!document.querySelector('#baselineTable .drow:not(.dhead)')) for(let i=0;i<3;i++) addRow('baselineTable');
+  if(!document.querySelector('#progressTable .drow:not(.dhead)')) for(let i=0;i<5;i++) addRow('progressTable');
+  if(!document.querySelector('#skillTable .drow:not(.dhead)')) for(let i=0;i<4;i++) addSkillRow('', null);
+  if(!document.querySelector('#sdTable .drow:not(.dhead):not(.example)')) for(let i=0;i<4;i++) addSDRow('', '', '');
+}
+
+/* ---------------- goal, aim line, and rate ---------------- */
+function medianOf(arr){
+  if(!arr.length) return null;
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+}
+function slopeOf(points){
+  const n = points.length;
+  if(n < 2) return null;
+  const mx = points.reduce((a,p) => a + p.x, 0) / n;
+  const my = points.reduce((a,p) => a + p.y, 0) / n;
+  let num = 0, den = 0;
+  points.forEach(p => { num += (p.x - mx) * (p.y - my); den += (p.x - mx) * (p.x - mx); });
+  return den ? num / den : null;
+}
+// Session index: baseline sessions are 0..n-1; progress sessions continue from n.
+function getPlan(){
+  const bl = readTable('baselineTable').filter(p => p.score != null);
+  const pr = readTable('progressTable').filter(p => p.score != null);
+  const goal = parseFloat(val('goalScore'));
+  const sessions = parseFloat(val('goalSessions'));
+  const median = medianOf(bl.map(p => p.score));
+  const x0 = bl.length ? bl.length - 1 : null;
+  const x1 = (bl.length && !isNaN(sessions) && sessions > 0) ? bl.length - 1 + sessions : null;
+  return {bl, pr, goal: isNaN(goal) ? null : goal, sessions: isNaN(sessions) ? null : sessions, median, x0, x1};
+}
+function aimAt(plan, x){
+  if(plan.median == null || plan.x1 == null || plan.goal == null || plan.x1 === plan.x0) return null;
+  return plan.median + (plan.goal - plan.median) * (x - plan.x0) / (plan.x1 - plan.x0);
+}
+function updateGoal(){
+  const method = val('goalMethod');
+  document.getElementById('benchFields').style.display = method === 'benchmark' ? 'grid' : 'none';
+  document.getElementById('roiFields').style.display = method === 'roi' ? 'grid' : 'none';
+  let target = '';
+  if(method === 'benchmark'){
+    const b = parseFloat(val('benchScore'));
+    if(!isNaN(b)) target = b;
+  } else if(method === 'roi'){
+    const rate = parseFloat(val('roiRate'));
+    const spw = parseFloat(val('sessionsPerWeek')) || 1;
+    const n = parseFloat(val('goalSessions'));
+    const med = medianOf(readTable('baselineTable').filter(p => p.score != null).map(p => p.score));
+    if(!isNaN(rate) && !isNaN(n) && med != null) target = Math.round((med + (rate / spw) * n) * 10) / 10;
+  }
+  setVal('goalScore', target === '' ? '' : target);
+}
+function rateInfo(plan){
+  const pts = plan.pr.map((p,i) => ({x: plan.bl.length + i, y: p.score}));
+  const slope = slopeOf(pts);
+  const spw = parseFloat(val('sessionsPerWeek'));
+  const needed = (plan.goal != null && plan.median != null && plan.sessions) ? (plan.goal - plan.median) / plan.sessions : null;
+  return {slope, needed, spw: isNaN(spw) ? null : spw};
+}
+
+/* ---------------- SVG chart ---------------- */
+function buildChartSVG(){
+  const plan = getPlan(), bl = plan.bl, pr = plan.pr;
+  if(bl.length === 0 && pr.length === 0) return null;
+
+  const scores = bl.concat(pr).map(p => p.score);
+  if(plan.goal != null) scores.push(plan.goal);
+  const maxY = Math.max(...scores) * 1.25 || 10;
+  const minY = 0;
+
+  const total = bl.length + pr.length;
+  const goalX = plan.x1 != null ? plan.x1 : total - 1;
+  const lastX = Math.max(total - 1, goalX);
+
+  const W = 560, H = 260, padL = 44, padR = 16, padT = 16, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const xPix = x => padL + ((x + 0.5) / (lastX + 1.5)) * plotW;
+  const yPix = y => padT + plotH - ((y - minY) / (maxY - minY)) * plotH;
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">';
+
+  const ySteps = 4;
+  for(let i = 0; i <= ySteps; i++){
+    const gy = minY + (maxY - minY) * i / ySteps;
+    const py = yPix(gy);
+    svg += '<line x1="' + padL + '" y1="' + py + '" x2="' + (W - padR) + '" y2="' + py + '" stroke="#B0B3B2" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 8) + '" y="' + (py + 3) + '" font-size="9" fill="#3F3F3F" text-anchor="end">' + Math.round(gy) + '</text>';
+  }
+  svg += '<line x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '" stroke="#000000" stroke-width="1.2"/>';
+  svg += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (H - padB) + '" stroke="#000000" stroke-width="1.2"/>';
+  for(let x = 0; x <= lastX; x++){
+    svg += '<text x="' + xPix(x) + '" y="' + (H - padB + 13) + '" font-size="8" fill="#3F3F3F" text-anchor="middle">' + (x + 1) + '</text>';
+  }
+  svg += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 6) + '" font-size="10" fill="#3F3F3F" text-anchor="middle">Session</text>';
+
+  if(bl.length > 0 && pr.length > 0){
+    const dx = xPix(bl.length - 0.5);
+    svg += '<line x1="' + dx + '" y1="' + padT + '" x2="' + dx + '" y2="' + (H - padB) + '" stroke="#8A6D1A" stroke-width="1" stroke-dasharray="3,3"/>';
+    svg += '<text x="' + dx + '" y="' + (padT - 4) + '" font-size="9" fill="#8A6D1A" text-anchor="middle">start of intervention</text>';
+  }
+
+  if(bl.length){
+    let path = '';
+    bl.forEach((p,i) => { path += (i === 0 ? 'M' : 'L') + xPix(i) + ' ' + yPix(p.score) + ' '; });
+    svg += '<path d="' + path + '" fill="none" stroke="#000000" stroke-width="1.8"/>';
+    bl.forEach((p,i) => { svg += '<circle cx="' + xPix(i) + '" cy="' + yPix(p.score) + '" r="3.5" fill="#000000"/>'; });
+  }
+  if(pr.length){
+    let path = '';
+    pr.forEach((p,i) => { path += (i === 0 ? 'M' : 'L') + xPix(bl.length + i) + ' ' + yPix(p.score) + ' '; });
+    svg += '<path d="' + path + '" fill="none" stroke="#8A6D1A" stroke-width="1.8"/>';
+    pr.forEach((p,i) => { svg += '<circle cx="' + xPix(bl.length + i) + '" cy="' + yPix(p.score) + '" r="3.5" fill="#8A6D1A"/>'; });
+  }
+
+  if(plan.median != null && plan.x1 != null && plan.goal != null){
+    svg += '<line x1="' + xPix(plan.x0) + '" y1="' + yPix(plan.median) + '" x2="' + xPix(plan.x1) + '" y2="' + yPix(plan.goal) + '" stroke="#00843D" stroke-width="1.6" stroke-dasharray="5,4"/>';
+    svg += '<circle cx="' + xPix(plan.x1) + '" cy="' + yPix(plan.goal) + '" r="4" fill="#00843D"/>';
+    svg += '<text x="' + xPix(plan.x1) + '" y="' + (yPix(plan.goal) - 8) + '" font-size="9" fill="#00843D" text-anchor="end">goal: ' + plan.goal + '</text>';
+  }
+
+  svg += '</svg>';
+  return svg;
+}
+
+/* ---------------- paragraph builders ---------------- */
+function name(){ return val('pseudonym') || 'This student'; }
+
+function buildPart1Para1(who){
+  const a1=val('q1'), a2=val('q2'), a3=val('q3');
+  if(!a1 && !a2 && !a3) return null;
+  let parts=[];
+  if(a1 && a2) parts.push(who+' is expected to '+lower(stripEndPunct(a1))+', within a classroom and school environment where '+lower(stripEndPunct(a2))+'.');
+  else if(a1) parts.push(who+' is expected to '+lower(sentence(a1)));
+  else if(a2) parts.push('The classroom and school environment can be described as follows: '+sentence(a2));
+  if(a3) parts.push('To support '+who+"'s progress in that environment, the school has the following structures already in place: "+sentence(a3));
+  return parts.join(' ');
+}
+function buildPart1Para2(who, gradeAge){
+  const a4=val('q4'), a5=val('q5'), a6=val('q6'), a7=val('q7'), a8=val('q8');
+  if(!a4 && !a5 && !a6 && !a7 && !a8) return null;
+  let parts=[];
+  let opener = who; if(gradeAge) opener += ', '+gradeAge+',';
+  if(a4) parts.push(opener+' '+lower(sentence(a4)));
+  if(a5) parts.push(who+' was selected for this case study because '+lower(stripEndPunct(a5))+'.');
+  if(a6) parts.push('In reading, '+who+"'s primary area of challenge is as follows: "+sentence(a6));
+  if(a7) parts.push("Looking back across "+who+"'s educational history, "+lower(sentence(a7)));
+  if(a8){ parts.push(isNA(a8) ? (who+' is not currently identified as an English Learner.') : ('Regarding language status, '+lower(sentence(a8)))); }
+  return parts.join(' ');
+}
+
+function buildPart2Para1(who){
+  const a9=val('q9'), a10=val('q10'), a11=val('q11'), a12=val('q12'), a13=val('q13'), a14=val('q14'), a15=val('q15');
+  const sdLevel=val('sdqaLevel'), sdDate=val('sdqaDate'), dName=val('diagName'), dDate=val('diagDate');
+  const skills = readSkills().filter(s => s.name && s.pct != null);
+  if(![a9,a10,a11,a12,a13,a14,a15,sdLevel,dName].some(Boolean) && !skills.length) return null;
+  const parts=[];
+  if(sdLevel) parts.push('On the San Diego Quick Assessment'+(sdDate?' ('+fmtDate(sdDate)+')':'')+', '+who+' read at an instructional level of '+sdLevel+'.');
+  if(dName) parts.push('The diagnostic assessment used was '+dName+(dDate?' ('+fmtDate(dDate)+')':'')+'.');
+  if(skills.length){
+    const st = skills.filter(s => s.pct >= 90).map(s => s.name);
+    const nd = skills.filter(s => s.pct < 90).map(s => s.name);
+    if(st.length) parts.push('Strengths (90% or higher correct) included '+listJoin(st)+'.');
+    if(nd.length) parts.push('Areas of need (below 90% correct) included '+listJoin(nd)+'.');
+  }
+  if(a9) parts.push('To establish present levels of performance, the following tools were used: '+sentence(a9));
+  if(a10) parts.push('In phonemic awareness, '+lower(sentence(a10)));
+  if(a11) parts.push('In phonics, '+lower(sentence(a11)));
+  if(a12) parts.push('In reading fluency, '+lower(sentence(a12)));
+  if(a13) parts.push('In vocabulary, '+lower(sentence(a13)));
+  if(a14) parts.push('In reading comprehension, '+lower(sentence(a14)));
+  if(a15) parts.push('Taken together across all five areas, '+lower(sentence(a15)));
+  return parts.join(' ');
+}
+function buildPart2Para2(who){
+  const a16=val('q16'), obs=val('qObs'), probe=val('cbmProbe'), forms=val('cbmForms');
+  const bl = readTable('baselineTable').filter(p => p.date || p.score != null);
+  const scored = bl.filter(p => p.score != null);
+  if(!a16 && !obs && !probe && !scored.length) return null;
+  const parts=[];
+  if(probe) parts.push(who+' was monitored with '+probe+(forms?' (forms '+forms+')':'')+'.');
+  if(a16) parts.push(sentence(a16));
+  if(scored.length){
+    const vals = scored.map(p => p.score);
+    const mean = (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1);
+    const listing = bl.map((p,i) => 'Session '+(i+1)+(p.date?' ('+fmtDate(p.date)+')':'')+': '+(p.score!=null ? p.score : '—')).join('; ');
+    parts.push('Baseline data were collected as follows — '+listing+'. The baseline median is '+medianOf(vals)+' (mean '+mean+').');
+  }
+  if(obs) parts.push('Classroom and testing observations: '+sentence(obs));
+  return parts.join(' ');
+}
+
+function buildPart3Para1(who){
+  const a17=val('q17'), a18=val('q18'), aStd=val('qStd'), method=val('goalMethod'), g2=val('qGoal2'), g3=val('qGoal3');
+  const plan = getPlan();
+  const goal = plan.goal, n = plan.sessions;
+  if(!a17 && !a18 && !aStd && !g2 && !g3 && goal == null) return null;
+  const parts=[];
+  if(a17) parts.push(sentence(a17));
+  if(g2) parts.push(sentence(g2));
+  if(g3) parts.push(sentence(g3));
+  if(method === 'benchmark'){
+    const src = val('benchSource');
+    parts.push('The target of '+(goal!=null ? goal : '—')+' is the national benchmark'+(src?' ('+src+')':'')+'.');
+  } else if(method === 'roi'){
+    const rate = val('roiRate'), rsrc = val('roiSource'), spw = val('sessionsPerWeek');
+    parts.push('The target applies a rate of improvement of '+(rate||'—')+(rate==1?' point':' points')+' per week'+(rsrc?' (source: '+rsrc+')':'')+', from a baseline median of '+(plan.median!=null ? plan.median : '—')+' across '+(n||'—')+' progress sessions'+(spw?' at '+spw+' session(s) per week':'')+', giving a target of '+(goal!=null ? goal : '—')+'.');
+  }
+  if(a18) parts.push('This method was chosen because '+lower(stripEndPunct(a18))+'.');
+  if(aStd) parts.push('The goal connects to grade-level standards as follows: '+sentence(aStd));
+  if(goal != null && n) parts.push(who+' is expected to reach a score of '+goal+' within '+n+' progress sessions.');
+  return parts.join(' ');
+}
+function buildPart3Note(){
+  const bl = readTable('baselineTable').filter(p => p.score != null);
+  const pr = readTable('progressTable').filter(p => p.score != null);
+  if(bl.length === 0 && pr.length === 0) return null;
+  const parts=[];
+  if(bl.length) parts.push(bl.length+' baseline session'+(bl.length===1?'':'s'));
+  if(pr.length) parts.push(pr.length+' progress-monitoring session'+(pr.length===1?'':'s'));
+  return 'The graph shows '+parts.join(' and ')+'. The aim line runs from the baseline median to the target.';
+}
+
+function buildPart4Para1(who){
+  const a19=val('q19'), a20=val('q20');
+  const plan = getPlan(), rate = rateInfo(plan);
+  const parts=[];
+  if(a19) parts.push(sentence(a19));
+  if(a20) parts.push('Comparing performance across phases, '+lower(sentence(a20)));
+  if(rate.slope != null){
+    parts.push('Observed growth across progress sessions is '+fmt2(rate.slope)+' points per session'+(rate.spw ? ' (about '+fmt2(rate.slope*rate.spw)+' per week)' : '')+'.');
+  }
+  if(rate.needed != null){
+    parts.push('Reaching the target requires growth of about '+fmt2(rate.needed)+' points per session.');
+    if(rate.slope != null) parts.push(rate.slope >= rate.needed ? 'The observed growth is at or above the rate needed to reach the target.' : 'The observed growth is below the rate needed to reach the target.');
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+function buildPart4Para2(who){
+  const a21=val('q21'), a22=val('q22'), a23=val('q23'), dys=val('qDys'), rule=val('qRule'), a24=val('q24');
+  if(![a21,a22,a23,dys,rule,a24].some(Boolean)) return null;
+  const parts=[];
+  if(a21) parts.push(sentence(a21));
+  if(a22) parts.push('Moving forward, the recommended instructional changes are as follows: '+sentence(a22));
+  if(a23) parts.push('Other factors considered include '+lower(stripEndPunct(a23))+'.');
+  if(dys) parts.push('Review of the characteristics of dyslexia: '+sentence(dys));
+  if(rule) parts.push('Rule-out factors: '+sentence(rule));
+  if(a24) parts.push('These recommendations were discussed with a mentor teacher or clinical supervisor: '+sentence(a24));
+  return parts.join(' ');
+}
+
+function buildPart5Para1(who){
+  const a25=val('q25'), a26=val('q26'), sd=readSD();
+  if(!a25 && !a26 && !sd.length) return null;
+  const parts=[];
+  if(a25) parts.push(sentence(a25));
+  if(a26) parts.push('To make the exchange two-way, '+lower(sentence(a26)));
+  if(sd.length){
+    const st = sd.filter(r => r.strength).map(r => r.skill ? r.skill+' ('+r.strength+')' : r.strength);
+    const df = sd.filter(r => r.difficulty).map(r => r.skill ? r.skill+' ('+r.difficulty+')' : r.difficulty);
+    if(st.length) parts.push('Strengths to build on include '+listJoin(st)+'.');
+    if(df.length) parts.push('Areas that still need support include '+listJoin(df)+'.');
+  }
+  return parts.join(' ');
+}
+function buildPart5Para2(who){
+  const a27=val('q27'), a28=val('q28');
+  if(!a27 && !a28) return null;
+  const parts=[];
+  if(a27) parts.push(sentence(a27));
+  if(a28) parts.push('Looking ahead, '+lower(sentence(a28)));
+  return parts.join(' ');
+}
+/* ---------------- Criterion 11: citations & references ----------------
+   The checklist only offers the sources below. Entries marked verify
+   still need a detail check against the original before students use them. */
+const SOURCES = [
+  {id:'ctl2020', corporate:true, authors:['Center on Teaching and Learning'], aliases:['Center on Teaching and Learning'],
+   year:'2020', type:'work', title:'DIBELS 8th edition technical manual', after:'', publisher:'University of Oregon',
+   url:'https://dibels.amplify.com/docs/techreports/DIBELS8-TechnicalManual_04152020.pdf', verify:true,
+   short:'Center on Teaching and Learning (2020), DIBELS 8th edition technical manual'},
+  {id:'gadoe_hb', corporate:true, authors:['Georgia Department of Education'], aliases:['Georgia Department of Education','GaDOE'],
+   year:'2026', type:'work', title:'Dyslexia informational handbook: Guidance for local school systems', after:'[Handbook]', publisher:'',
+   url:'https://lor2.gadoe.org/gadoe/file/4a506b87-b36d-46d0-95d6-f6503446562a/1/GaDOE_Dyslexia_Informational_Handbook.pdf', verify:false,
+   short:'Georgia Department of Education (2026), Dyslexia informational handbook'},
+  {id:'gadoe_el', corporate:true, authors:['Georgia Department of Education'], aliases:['Georgia Department of Education','GaDOE'],
+   year:'2026', type:'work', title:'Considerations for English learners at risk for dyslexia', after:'[Guide]', publisher:'',
+   url:'https://lor2.gadoe.org/gadoe/file/6f41f630-419a-45ae-a631-d2680feafb91/1/Considerations-for-English-Learners-at-Risk-for-Dyslexia.pdf', verify:false,
+   short:'Georgia Department of Education (2026), Considerations for English learners at risk for dyslexia'},
+  {id:'hasbrouck2017', corporate:false, authors:['Hasbrouck, J.','Tindal, G. A.'], aliases:['Hasbrouck','Tindal'],
+   year:'2017', type:'work', title:'An update to compiled ORF norms', after:'(Technical Report No. 1702)', publisher:'Behavioral Research and Teaching, University of Oregon',
+   url:'https://www.brtprojects.org/wp-content/uploads/2019/05/TechRpt_1702ORFNorms.pdf', verify:false,
+   short:'Hasbrouck & Tindal (2017), An update to compiled ORF norms'},
+  {id:'lapray1969', corporate:false, authors:['La Pray, M.','Ross, R.'], aliases:['La Pray','LaPray','Ross'],
+   year:'1969', type:'article', title:'The graded word list: Quick gauge of reading ability', journal:'Journal of Reading', vol:'12', issue:'4', pages:'305–307',
+   url:'', verify:true, short:'La Pray & Ross (1969), The graded word list (San Diego Quick Assessment)'},
+  {id:'nrp2000', corporate:true, authors:['National Reading Panel'], aliases:['National Reading Panel','NRP'],
+   year:'2000', type:'work', title:'Teaching children to read: An evidence-based assessment of the scientific research literature on reading and its implications for reading instruction',
+   after:'(NIH Publication No. 00-4769)', publisher:'National Institute of Child Health and Human Development',
+   url:'https://www.nichd.nih.gov/publications/pubs/nrp/pages/smallbook.aspx', verify:false,
+   short:'National Reading Panel (2000), Teaching children to read'},
+  {id:'easycbm2025', corporate:true, authors:['Riverside Assessments'], aliases:['Riverside Assessments','Riverside'],
+   year:'2025', type:'work', title:'easyCBM detailed percentile lookup tables', after:'(Version 1, updated August 15, 2025) [Lookup tables]', publisher:'',
+   url:'https://s.easycbm.com/pdfs/info/easyCBM_Detailed_Percentiles.pdf', verify:false,
+   short:'Riverside Assessments (2025), easyCBM detailed percentile lookup tables'},
+  {id:'stahl2020', corporate:false, authors:['Stahl, K. A. D.','Flanigan, K.','Lupo, S. M.'], aliases:['Stahl','Flanigan','Lupo'],
+   year:'2020', type:'work', title:'Assessment for reading instruction', after:'(4th ed.)', publisher:'Guilford Press',
+   url:'https://www.guilford.com/books/Assessment-for-Reading-Instruction/Stahl-Flanigan-Lupo/9781462558438', verify:true,
+   short:'Stahl, Flanigan, & Lupo (2020), Assessment for reading instruction'},
+  {id:'ufli2025', corporate:true, authors:['University of Florida Literacy Institute'], aliases:['University of Florida Literacy Institute','UFLI'],
+   year:'2025', type:'work', title:'UFLI Foundations intervention placement test', after:'[Assessment]', publisher:'University of Florida',
+   url:'https://ufli.education.ufl.edu/wp-content/uploads/2025/08/UFLIAssessment_081025_v2.pdf', verify:true,
+   short:'University of Florida Literacy Institute (2025), UFLI Foundations intervention placement test'}
+];
+
+function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function surnameOf(a){ return a.split(',')[0].trim(); }
+function inTextNames(s){ return s.corporate ? [s.authors[0]] : s.authors.map(surnameOf); }
+
+// Adds a/b/c after the year when one author and year appear more than once.
+function assignYearLetters(list){
+  const groups = {};
+  list.forEach(s => { const k = s.authors[0] + '|' + s.year; (groups[k] = groups[k] || []).push(s); });
+  Object.values(groups).forEach(g => {
+    if(g.length > 1){
+      g.sort((a,b) => a.title.localeCompare(b.title));
+      g.forEach((s,i) => s.yearL = s.year + String.fromCharCode(97 + i));
+    } else {
+      g[0].yearL = g[0].year;
+    }
+  });
+}
+assignYearLetters(SOURCES);
+
+function parenCite(s){
+  const n = inTextNames(s), y = s.yearL;
+  if(n.length === 1) return '(' + n[0] + ', ' + y + ')';
+  if(n.length === 2) return '(' + n[0] + ' & ' + n[1] + ', ' + y + ')';
+  return '(' + n[0] + ' et al., ' + y + ')';
+}
+function narrCite(s){
+  const n = inTextNames(s), y = s.yearL;
+  if(n.length === 1) return n[0] + ' (' + y + ')';
+  if(n.length === 2) return n[0] + ' and ' + n[1] + ' (' + y + ')';
+  return n[0] + ' et al. (' + y + ')';
+}
+function formatAuthors(list){
+  if(list.length === 1) return list[0];
+  return list.slice(0,-1).join(', ') + ', & ' + list[list.length-1];
+}
+function refHTML(s){
+  const head = (s.corporate ? s.authors[0] + '.' : formatAuthors(s.authors)) + ' (' + s.yearL + '). ';
+  let body;
+  if(s.type === 'article'){
+    body = s.title + '. <em>' + s.journal + ', ' + s.vol + '</em>' + (s.issue ? '(' + s.issue + ')' : '') + ', ' + s.pages + '.';
+  } else {
+    body = '<em>' + s.title + '</em>' + (s.after ? ' ' + s.after : '') + '.' + (s.publisher ? ' ' + s.publisher + '.' : '');
+  }
+  return head + body + (s.url ? ' ' + s.url : '');
+}
+
+function getCheckedSources(){
+  const ids = [...document.querySelectorAll('#citeList input:checked')].map(c => c.dataset.id);
+  return SOURCES.filter(s => ids.includes(s.id));
+}
+function buildCiteList(){
+  const box = document.getElementById('citeList');
+  box.innerHTML = '';
+  SOURCES.forEach(s => {
+    const label = document.createElement('label');
+    label.className = 'cite-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.dataset.id = s.id;
+    const span = document.createElement('span');
+    span.textContent = s.short;
+    label.appendChild(cb); label.appendChild(span);
+    if(s.verify){
+      const f = document.createElement('em'); f.className = 'cite-flag'; f.textContent = ' (check details)';
+      label.appendChild(f);
+    }
+    box.appendChild(label);
+  });
+}
+
+function buildRefs(){
+  const items = getCheckedSources().map(s => ({sort: s.authors[0].toLowerCase() + ' ' + s.yearL, html: refHTML(s)}))
+    .concat(val('q29').split('\n').map(x => x.trim()).filter(Boolean).map(x => ({sort: x.toLowerCase(), html: escapeHtml(x)})));
+  if(!items.length) return '';
+  items.sort((a,b) => a.sort.localeCompare(b.sort));
+  return items.map(i => '<p style="margin-left:0.5in;text-indent:-0.5in;line-height:1.7;margin-top:0;margin-bottom:8px;">' + i.html + '</p>').join('');
+}
+
+function citeCheckText(){
+  return Array.from(document.querySelectorAll('.form-pane textarea')).filter(t => t.id !== 'q29').map(t => t.value).join('\n');
+}
+function updateCiteUI(){
+  const checked = getCheckedSources();
+  const text = citeCheckText();
+  const ex = document.getElementById('citeExamples');
+  ex.innerHTML = '';
+  if(!checked.length){
+    ex.textContent = 'Check each source you used. The builder will show the in-text citation to use for it.';
+  } else {
+    const h = document.createElement('div');
+    h.textContent = 'Reminder: add an in-text citation each time you use a checked source.';
+    ex.appendChild(h);
+    checked.forEach(s => {
+      const d = document.createElement('div');
+      d.textContent = s.short + ': ' + parenCite(s) + '   or   ' + narrCite(s);
+      ex.appendChild(d);
+    });
+  }
+
+  const box = document.getElementById('citeCheck');
+  box.innerHTML = '';
+  const add = (t, c) => { const d = document.createElement('div'); if(c) d.className = c; d.textContent = t; box.appendChild(d); };
+  add('Citation check', 'check-title');
+  if(!checked.length){ add('No sources checked yet.', 'check-line'); return; }
+
+  checked.forEach(s => {
+    const used = s.aliases.some(a => new RegExp('\\b' + escapeRe(a) + '\\b', 'i').test(text)) && text.includes(s.year);
+    if(!used) add(s.short + ' is in your references but not cited in your text. Add ' + parenCite(s) + ' or ' + narrCite(s) + ' where you used it.', 'check-warn');
+  });
+
+  const paren = /\(([A-Z][A-Za-z'’\-]+)(?: et al\.| & [A-Z][A-Za-z'’\-]+| and [A-Z][A-Za-z'’\-]+)?,? (\d{4})[a-z]?\)/g;
+  const narr  = /([A-Z][A-Za-z'’\-]+)(?: et al\.| & [A-Z][A-Za-z'’\-]+| and [A-Z][A-Za-z'’\-]+)? \((\d{4})[a-z]?\)/g;
+  const found = [];
+  let m;
+  while((m = paren.exec(text))) found.push([m[0], m[1], m[2]]);
+  while((m = narr.exec(text))) found.push([m[0], m[1], m[2]]);
+  found.forEach(([full, n, y]) => {
+    const match = checked.some(s => s.year === y && s.aliases.some(a => a.startsWith(n)));
+    if(!match) add('The in-text citation ' + full + ' does not match a checked source. Check the spelling and year, or check the source on the list.', 'check-warn');
+  });
+  if(!box.querySelector('.check-warn')) add('Every checked source appears in your text.', 'check-line');
+}
+
+function setOutHtml(id, html, fallback){
+  const el = document.getElementById(id);
+  if(html){ el.innerHTML = html; el.classList.remove('placeholder'); }
+  else { el.textContent = fallback; el.classList.add('placeholder'); }
+}
+
+
+/* ---------------- render / generate ---------------- */
+function setOut(id, text, fallback){
+  const el = document.getElementById(id);
+  if(text){ el.textContent=text; el.classList.remove('placeholder'); }
+  else { el.textContent=fallback; el.classList.add('placeholder'); }
+}
+
+const WORD_TARGETS = {out1:170, out2:170, out3:220, out4:200, out5:150, out7:200, out8:260, out9:170, out10:500};
+const SECTION_NAMES = {out1:'Criterion 1', out2:'Criterion 2', out3:'Criterion 3', out4:'Criterion 4', out5:'Criterion 5', out6:'Criterion 6 (graph)', out7:'Criterion 7', out8:'Criterion 8', out9:'Criterion 9', out10:'Criterion 10', out11:'Criterion 11'};
+function wordCount(s){ return s ? s.trim().split(/\s+/).filter(Boolean).length : 0; }
+function writingCheck(){
+  const box = document.getElementById('writingCheck');
+  box.innerHTML = '';
+  const addLine = (text, cls) => { const d = document.createElement('div'); if(cls) d.className = cls; d.textContent = text; box.appendChild(d); };
+  addLine('Before you turn it in (suggested limits, not rubric requirements)', 'check-title');
+  let allText = '';
+  Object.keys(SECTION_NAMES).forEach(id => {
+    const el = document.getElementById(id);
+    if(el.classList.contains('placeholder')) return;
+    const t = el.textContent;
+    allText += ' ' + t;
+    const lim = WORD_TARGETS[id];
+    if(lim){
+      const n = wordCount(t);
+      addLine(SECTION_NAMES[id] + ': ' + n + ' words (suggested up to ' + lim + ')' + (n > lim ? ' — consider tightening' : ''), n > lim ? 'check-warn' : 'check-line');
+    }
+  });
+  const pf = /\b(dyslexic|autistic|disabled|learning[- ]disabled|LD|ADHD)\s+(students?|children|kids|learners?)\b/gi;
+  const pf2 = /\b(suffers? from|special needs|victim of)\b/gi;
+  const hits = [...new Set(((allText.match(pf) || []).concat(allText.match(pf2) || [])).map(s => s.toLowerCase()))];
+  hits.forEach(h => addLine('Person-first language: rewrite "' + h + '" to put the student first (for example, "student with dyslexia").', 'check-warn'));
+  if(!allText.trim()) addLine('Nothing to check yet.', 'check-line');
+}
+
+function generate(){
+  updateHeaderCard(); updateAge(); updateGoal();
+  const who = name();
+  const grade = val('grade');
+  const age = calcAge(val('dob'), val('evalDate'));
+  const gaBits=[]; if(age) gaBits.push('age '+age.split(';')[0]); if(grade) gaBits.push(grade.toLowerCase().startsWith('grade') ? lower(grade) : 'grade '+grade);
+  const gradeAge = gaBits.join(', ');
+
+  setOut('out1', buildPart1Para1(who), 'Answer questions 1–3 to generate this section.');
+  setOut('out2', buildPart1Para2(who, gradeAge), 'Answer questions 4–8 to generate this section.');
+  setOut('out3', buildPart2Para1(who), 'Answer questions 9–15 and add the SDQA and diagnostic results to generate this section.');
+  setOut('out4', buildPart2Para2(who), 'Answer questions 16–17 and add baseline sessions to generate this section.');
+  setOut('out5', buildPart3Para1(who), 'Answer questions 18–20 and choose a goal method to generate this section.');
+  setOut('out6', buildPart3Note(), 'Add baseline and progress-monitoring sessions to see your graph.');
+
+  const svg = buildChartSVG();
+  const chartWrap = document.getElementById('chartWrap3');
+  if(svg){
+    chartWrap.style.display = 'block';
+    chartWrap.innerHTML = svg + '<div class="chart-legend"><span><i class="swatch" style="background:#000000"></i>Baseline</span><span><i class="swatch" style="background:#8A6D1A"></i>Progress monitoring</span><span><i class="swatch" style="background:#00843D"></i>Aim line to goal</span></div>';
+  } else { chartWrap.style.display = 'none'; }
+
+
+  setOut('out7', buildPart4Para1(who), 'Answer questions 19–22 to generate this section.');
+  setOut('out8', buildPart4Para2(who), 'Answer questions 23–28 to generate this section.');
+  setOut('out9', buildPart5Para1(who), 'Answer questions 29–30 and the reading profile table to generate this section.');
+  setOut('out10', buildPart5Para2(who), 'Answer questions 31–32 to generate this section.');
+  setOutHtml('out11', buildRefs(), 'Check the sources you used above to build your reference list.');
+  updateCiteUI();
+
+  renderFullReport(who, gradeAge, svg);
+  writingCheck();
+  scheduleAutosave();
+}
+
+function renderFullReport(who, gradeAge, svg){
+  const container = document.getElementById('fullReportBody');
+  let html = '';
+  html += sectionBlock('Part 1: Student Background Information', [
+    ['Criterion 1', 'Academic Expectations, Classroom, and School Context', buildPart1Para1(who)],
+    ['Criterion 2', 'Student Characteristics and Rationale for Selection', buildPart1Para2(who, gradeAge)]
+  ]);
+  html += sectionBlock('Part 2: Diagnostic Assessments & Baseline', [
+    ['Criterion 3', 'Present Level of Performance & Diagnostic Analysis', buildPart2Para1(who)],
+    ['Criterion 4', 'CBM Selection and Baseline', buildPart2Para2(who)]
+  ]);
+  html += '<div class="part-title">Part 3: Progress Monitoring</div><div class="report-page">';
+  html += reportRow('Criterion 5', 'Goal Statement', buildPart3Para1(who));
+  html += '<div class="report-row"><div class="margin-tag">Criterion 6</div><div class="report-copy"><div class="heading">Progress Monitoring Graph</div>' +
+          (buildPart3Note() ? '<div>'+buildPart3Note()+'</div>' : '<div class="placeholder">No graph data yet.</div>') +
+          (svg ? '<div class="chart-wrap" style="margin-top:10px">'+svg+'</div>' : '') + '</div></div>';
+  html += '</div>';
+  html += sectionBlock('Part 4: Data Analysis & Recommended Adaptation', [
+    ['Criterion 7', 'Analysis of CBM Data', buildPart4Para1(who)],
+    ['Criterion 8', 'Instructional Recommendations', buildPart4Para2(who)]
+  ]);
+  html += sectionBlock('Part 5: Summary & Recommendations', [
+    ['Criterion 9', 'Communicating Progress', buildPart5Para1(who)],
+    ['Criterion 10', 'Reflection', buildPart5Para2(who)]
+  ]);
+  const refs = buildRefs();
+  html += '<div class="part-title">References</div><div id="refsList">' + (refs || 'No references added yet.') + '</div>';
+  container.innerHTML = html;
+}
+function reportRow(tag, heading, text){
+  return '<div class="report-row"><div class="margin-tag">'+tag+'</div><div class="report-copy"><div class="heading">'+heading+'</div><div class="'+(text?'':'placeholder')+'">'+(text ? escapeHtml(text) : 'Not yet answered.')+'</div></div></div>';
+}
+function sectionBlock(title, rows){
+  let html = '<div class="part-title">'+title+'</div><div class="report-page">';
+  rows.forEach(r => html += reportRow(r[0], r[1], r[2]));
+  html += '</div>';
+  return html;
+}
+
+document.getElementById('generate').addEventListener('click', generate);
+// every field in the form pane refreshes the preview and autosaves
+document.querySelectorAll('.form-pane input, .form-pane textarea, .form-pane select').forEach(el => {
+  el.addEventListener('input', generate);
+  el.addEventListener('change', generate);
+});
+
+/* ---------------- copy current section / download full report ---------------- */
+const SECTION_LABELS = {
+  part1: 'PART 1: STUDENT BACKGROUND INFORMATION',
+  part2: 'PART 2: DIAGNOSTIC ASSESSMENTS & BASELINE',
+  part3: 'PART 3: PROGRESS MONITORING',
+  part4: 'PART 4: DATA ANALYSIS & RECOMMENDED ADAPTATION',
+  part5: 'PART 5: SUMMARY & RECOMMENDATIONS'
+};
+const SECTION_OUT_IDS = {
+  part1: [['Academic Expectations, Classroom, and School Context','out1'], ['Student Characteristics and Rationale for Selection','out2']],
+  part2: [['Present Level of Performance & Diagnostic Analysis','out3'], ['CBM Selection and Baseline','out4']],
+  part3: [['Goal Statement','out5'], ['Progress Monitoring Graph','out6']],
+  part4: [['Analysis of CBM Data','out7'], ['Instructional Recommendations','out8']],
+  part5: [['Communicating Progress','out9'], ['Reflection','out10'], ['References','out11']]
+};
+
+function currentSectionText(){
+  const tab = document.querySelector('nav.tabs button.active').dataset.tab;
+  if(tab === 'full') return gatherFullText();
+  let out = SECTION_LABELS[tab] + '\n\n';
+  SECTION_OUT_IDS[tab].forEach(([label,id]) => { out += label + '\n' + document.getElementById(id).textContent + '\n\n'; });
+  return out.trim();
+}
+function gatherFullText(){
+  const h = ['Date: '+document.getElementById('hDate').textContent,
+             'Student: '+document.getElementById('hStudent').textContent,
+             'Age: '+document.getElementById('hAge').textContent,
+             'Evaluator: '+document.getElementById('hEvaluator').textContent,
+             'Evaluation Dates: '+document.getElementById('hEvalDate').textContent].join('\n');
+  let out = 'PROGRESS MONITORING CASE STUDY\n\n'+h+'\n\n';
+  Object.keys(SECTION_LABELS).forEach(tab => {
+    out += SECTION_LABELS[tab] + '\n\n';
+    SECTION_OUT_IDS[tab].forEach(([label,id]) => { out += label + '\n' + document.getElementById(id).textContent + '\n\n'; });
+  });
+  return out.trim() + '\n';
+}
+document.getElementById('copyBtn').addEventListener('click', function(){
+  navigator.clipboard.writeText(currentSectionText()).then(function(){
+    const status = document.getElementById('status');
+    status.classList.add('show');
+    setTimeout(() => status.classList.remove('show'), 1800);
+  });
+});
+document.getElementById('downloadFullBtn').addEventListener('click', function(){ downloadFullReportWord(); });
+
+/* ---------------- Word (.doc) export helpers ----------------
+   Uses the "HTML wrapped for Word" technique: Word opens an HTML file
+   saved with a .doc extension natively. No external library needed. */
+function wordDocument(title, bodyHtml){
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+  + '<head><meta charset="utf-8"><title>' + escapeHtml(title) + '</title>'
+  + '<style>'
+  + 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000000;} '
+  + 'h1{font-size:18pt;margin-bottom:4pt;} '
+  + 'h2{font-size:14pt;margin-top:18pt;margin-bottom:4pt;border-bottom:1pt solid #8A6D1A;padding-bottom:2pt;} '
+  + 'h3{font-size:12pt;color:#8A6D1A;text-transform:uppercase;letter-spacing:1pt;margin-top:12pt;margin-bottom:2pt;} '
+  + 'p{line-height:1.5;margin:0 0 10pt 0;} '
+  + 'table{border-collapse:collapse;width:100%;margin-bottom:12pt;} '
+  + 'td,th{border:1pt solid #ccc;padding:5pt 8pt;font-size:10pt;text-align:left;vertical-align:top;} '
+  + 'th{background:#FFC629;} '
+  + '.meta{font-size:10pt;color:#3F3F3F;margin-bottom:14pt;} '
+  + '</style></head><body>' + bodyHtml + '</body></html>';
+}
+function downloadWordFile(filename, title, bodyHtml){
+  const html = wordDocument(title, bodyHtml);
+  const blob = new Blob(['﻿', html], {type:'application/msword'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+function svgToPngDataUrl(svgString, width, height){
+  return new Promise(function(resolve){
+    const svg64 = btoa(unescape(encodeURIComponent(svgString)));
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      canvas.width = width * 2; canvas.height = height * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function(){ resolve(null); };
+    img.src = 'data:image/svg+xml;base64,' + svg64;
+  });
+}
+function fullReportBodyHtml(chartImgTag){
+  const h = '<p class="meta"><strong>Date:</strong> '+document.getElementById('hDate').textContent+'<br>'
+    + '<strong>Student:</strong> '+document.getElementById('hStudent').textContent+'<br>'
+    + '<strong>Age:</strong> '+document.getElementById('hAge').textContent+'<br>'
+    + '<strong>Evaluator:</strong> '+document.getElementById('hEvaluator').textContent+'<br>'
+    + '<strong>Evaluation Dates:</strong> '+document.getElementById('hEvalDate').textContent+'</p>';
+  let body = '<h1>Progress Monitoring Case Study</h1>' + h + '<p><strong>Before you submit, proofread the entire report.</strong></p>';
+  Object.keys(SECTION_LABELS).forEach(tab => {
+    body += '<h2>' + SECTION_LABELS[tab] + '</h2>';
+    SECTION_OUT_IDS[tab].forEach(([label,id]) => {
+      body += '<h3>' + label + '</h3><p>' + escapeHtml(document.getElementById(id).textContent) + '</p>';
+      if(tab === 'part3' && label === 'Progress Monitoring Graph' && chartImgTag) body += chartImgTag;
+    });
+  });
+  body += '<h2>REFERENCES</h2>' + document.getElementById('out11').innerHTML;
+  return body;
+}
+function downloadFullReportWord(){
+  const svg = buildChartSVG();
+  const pseud = val('pseudonym') || 'draft';
+  const filename = 'case-study-report-' + pseud.replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '.doc';
+  if(svg){
+    svgToPngDataUrl(svg, 560, 260).then(function(dataUrl){
+      const imgTag = dataUrl ? '<p><img src="'+dataUrl+'" width="560" height="260"></p>' : '';
+      downloadWordFile(filename, 'Case Study Report', fullReportBodyHtml(imgTag));
+    });
+  } else {
+    downloadWordFile(filename, 'Case Study Report', fullReportBodyHtml(''));
+  }
+}
+
+/* ---------------- autosave to this browser (localStorage) ---------------- */
+const STORAGE_KEY = 'ined7621_case_study_progress';
+const TEXT_FIELD_IDS = ['pseudonym','grade','evaluator','reportDate','dob','evalDate',
+  'q1','q2','q3','q4','q5','q6','q7','q8',
+  'sdqaDate','sdqaLevel','diagName','diagDate',
+  'q9','q10','q11','q12','q13','q14','q15','q16','cbmProbe','cbmForms','qObs',
+  'q17','qGoal2','qGoal3','q18','qStd','goalMethod','benchScore','benchSource','roiRate','roiSource','sessionsPerWeek','goalSessions',
+  'q19','q20','q21','q22','q23','qDys','qRule','q24',
+  'q25','q26','q27','q28','q29'];
+
+const FIELD_LABELS = {
+  pseudonym:'Student initials', grade:'Grade level', evaluator:'Evaluator', reportDate:'Report date', dob:'Student date of birth', evalDate:'Evaluation date',
+  q1:'Q1 Academic expectations', q2:'Q2 Classroom/school setting', q3:'Q3 Support systems',
+  q4:'Q4 Disability category/background', q5:'Q5 Rationale for selection', q6:'Q6 Reading challenges', q7:'Q7 Educational history', q8:'Q8 English learner status',
+  sdqaDate:'SDQA date', sdqaLevel:'SDQA instructional level', diagName:'Diagnostic assessment', diagDate:'Diagnostic date',
+  q9:'Q9 Screeners/tools used', q10:'Q10 Phonemic awareness', q11:'Q11 Phonics', q12:'Q12 Fluency', q13:'Q13 Vocabulary', q14:'Q14 Comprehension', q15:'Q15 Strengths/needs synthesis',
+  q16:'Q16 CBM probe + rationale', cbmProbe:'CBM probe', cbmForms:'CBM form numbers', qObs:'Q17 Observations',
+  q17:'Q18 CBM goal', qGoal2:'Q18 Diagnostic goal 1', qGoal3:'Q18 Diagnostic goal 2', q18:'Q19 Goal-setting method and reason', qStd:'Q20 Standards connection', goalMethod:'Goal method', benchScore:'Benchmark score', benchSource:'Benchmark source',
+  roiRate:'Rate of improvement per week', roiSource:'Rate source', sessionsPerWeek:'Sessions per week', goalSessions:'Progress sessions to goal',
+  q19:'Q21 On track / decision', q20:'Q22 Phase comparison', q21:'Q23 Goal adjustment', q22:'Q24 Recommendations', q23:'Q25 Other factors',
+  qDys:'Q26 Dyslexia characteristics', qRule:'Q27 Rule-out factors', q24:'Q28 Mentor collaboration',
+  q25:'Q29 Communicating progress', q26:'Q30 Parent input', q27:'Q31 Reflection - learned', q28:'Q32 Reflection - next time', q29:'Q33 References'
+};
+
+let autosaveTimer = null;
+function scheduleAutosave(){
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(doAutosave, 500);
+}
+function doAutosave(){
+  try{
+    const data = { fields:{}, baseline: readTable('baselineTable'), progress: readTable('progressTable'),
+                   skills: readSkills(), sd: readSD(), cite: [...document.querySelectorAll('#citeList input:checked')].map(c => c.dataset.id), savedAt: new Date().toISOString() };
+    TEXT_FIELD_IDS.forEach(id => data.fields[id] = val(id));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const t = new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    document.getElementById('autosaveText').textContent = 'Saved at ' + t;
+  } catch(err){ /* storage unavailable; fail silently */ }
+}
+function restoreAutosave(){
+  let raw;
+  try{ raw = localStorage.getItem(STORAGE_KEY); } catch(err){ return; }
+  if(!raw) return;
+  try{
+    const data = JSON.parse(raw);
+    TEXT_FIELD_IDS.forEach(id => { if(data.fields && data.fields[id] !== undefined) setVal(id, data.fields[id]); });
+    clearRows('baselineTable'); clearRows('progressTable'); clearRows('skillTable'); clearRows('sdTable');
+    (data.baseline||[]).forEach(p => addRow('baselineTable', p.date, p.score));
+    (data.progress||[]).forEach(p => addRow('progressTable', p.date, p.score));
+    (data.skills||[]).forEach(s => addSkillRow(s.name, s.pct));
+    (data.sd||[]).forEach(r => addSDRow(r.skill, r.strength, r.difficulty));
+    const cited = data.cite || [];
+    document.querySelectorAll('#citeList input').forEach(c => { c.checked = cited.includes(c.dataset.id); });
+    seedRows();
+    if(data.savedAt){
+      const t = new Date(data.savedAt).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+      document.getElementById('autosaveText').textContent = 'Restored — last saved ' + t;
+    }
+  } catch(err){ /* corrupt data; start fresh */ }
+}
+
+/* ---------------- backup export (Word) ---------------- */
+document.getElementById('backupBtn').addEventListener('click', function(){
+  const rows = TEXT_FIELD_IDS.map(id => '<tr><td>'+escapeHtml(FIELD_LABELS[id]||id)+'</td><td>'+escapeHtml(val(id))+'</td></tr>').join('');
+  const tbl = list => list.map((p,i) => '<tr><td>'+(i+1)+'</td><td>'+escapeHtml(p.date||'')+'</td><td>'+(p.score==null?'':p.score)+'</td></tr>').join('');
+  const baselineRows = tbl(readTable('baselineTable'));
+  const progressRows = tbl(readTable('progressTable'));
+  const skillRows = readSkills().map(s => '<tr><td>'+escapeHtml(s.name)+'</td><td>'+(s.pct==null?'':s.pct)+'</td></tr>').join('');
+  const sdRows = readSD().map(r => '<tr><td>'+escapeHtml(r.skill)+'</td><td>'+escapeHtml(r.strength)+'</td><td>'+escapeHtml(r.difficulty)+'</td></tr>').join('');
+  const body = '<h1>Case Study Backup</h1>'
+    + '<p class="meta">Student: ' + escapeHtml(val('pseudonym')||'—') + ' &nbsp;|&nbsp; Saved: ' + new Date().toLocaleString() + '</p>'
+    + '<h2>Answers</h2><table><tr><th>Question</th><th>Answer</th></tr>' + rows + '</table>'
+    + '<h2>Baseline Sessions</h2><table><tr><th>Session</th><th>Date</th><th>Score</th></tr>' + (baselineRows || '<tr><td colspan="3">No data yet</td></tr>') + '</table>'
+    + '<h2>Progress-Monitoring Sessions</h2><table><tr><th>Session</th><th>Date</th><th>Score</th></tr>' + (progressRows || '<tr><td colspan="3">No data yet</td></tr>') + '</table>'
+    + '<h2>Skill Areas (Diagnostic)</h2><table><tr><th>Skill area</th><th>% correct</th></tr>' + (skillRows || '<tr><td colspan="2">No data yet</td></tr>') + '</table>'
+    + '<h2>Reading Profile</h2><table><tr><th>Skill area</th><th>Strength</th><th>Difficulty</th></tr>' + (sdRows || '<tr><td colspan="3">No data yet</td></tr>') + '</table>';
+  const pseud = val('pseudonym') || 'backup';
+  downloadWordFile('case-study-backup-' + pseud.replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '.doc', 'Case Study Backup', body);
+});
+
+document.getElementById('resetBtn').addEventListener('click', function(){
+  if(!confirm('This erases everything you\'ve entered on this device and cannot be undone. Continue?')) return;
+  try{ localStorage.removeItem(STORAGE_KEY); } catch(err){}
+  location.reload();
+});
+
+/* initial load */
+buildCiteList();
+document.getElementById('citeList').addEventListener('change', generate);
+seedRows();
+restoreAutosave();
+updateAge();
+updateHeaderCard();
+generate();
+
+</script>
+
+</body>
+</html>
